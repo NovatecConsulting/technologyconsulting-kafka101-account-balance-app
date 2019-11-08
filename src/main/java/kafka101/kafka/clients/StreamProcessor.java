@@ -17,10 +17,6 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.Properties;
 
-// https://gist.github.com/itzg/e3ebfd7aec220bf0522e23a65b1296c8
-// https://supergloo.com/kafka-streams/kafka-streams-transformation-examples/
-// https://cwiki.apache.org/confluence/display/KAFKA/Kafka+Stream+Usage+Patterns
-
 @Configuration
 public class StreamProcessor {
     @Bean
