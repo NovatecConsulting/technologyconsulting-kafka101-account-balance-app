@@ -40,7 +40,7 @@ public class TestProcessorTopology {
         props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "dummy:1234");
         props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.Integer().getClass());
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.Integer().getClass());
-        props.setProperty(StreamsConfig.STATE_DIR_CONFIG,"test-state-store");
+        props.put(StreamsConfig.STATE_DIR_CONFIG,"test-state-store");
         testDriver = new TopologyTestDriver(topology, props);
         store = testDriver.getKeyValueStore(KafkaConfiguration.STREAM_STATE_STORE);
     }

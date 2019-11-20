@@ -13,4 +13,5 @@ public interface KafkaConfiguration {
     public static Integer MAX_POLL_RECORDS=100;
     public static String OFFSET_RESET_EARLIER="earliest";
     public static String STREAM_STATE_STORE="balance-store";
+    public static String STREAM_STATE_DIR="stream1";
 }

@@ -9,9 +9,11 @@ import kafka101.kafka.configuration.KafkaConfiguration;
 
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
+import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.*;
 import org.apache.kafka.streams.kstream.*;
 
+import org.apache.kafka.streams.state.KeyValueStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -26,6 +28,7 @@ public class StreamProcessor {
         props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, KafkaConfiguration.KAFKA_BROKERS);
         props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.Integer().getClass());
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.Integer().getClass());
+        props.put(StreamsConfig.STATE_DIR_CONFIG,KafkaConfiguration.STREAM_STATE_DIR);
 
         final KafkaStreams kafkaStreams = new KafkaStreams(kafkaStreamTopology(), props);
         kafkaStreams.start();
@@ -45,7 +48,7 @@ public class StreamProcessor {
                                                        .aggregate(  // Java 8+, using Lambda expressions
                                                            () -> 0,
                                                            (key,value,balance) -> balance + value,
-                                                           Materialized.as(KafkaConfiguration.STREAM_STATE_STORE)
+                                                           Materialized.<Integer,Integer, KeyValueStore<Bytes, byte[]>>as(KafkaConfiguration.STREAM_STATE_STORE)
                                                        );
 // Java 7
 //                                                .aggregate(new Initializer<Integer>() {
