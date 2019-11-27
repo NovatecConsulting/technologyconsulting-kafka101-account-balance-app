@@ -1,7 +1,9 @@
 package kafka101.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import kafka101.events.DepositEvent;
-import kafka101.events.Event;
 import kafka101.events.WithdrawEvent;
 import kafka101.kafka.configuration.KafkaConfiguration;
 
@@ -23,13 +25,17 @@ import org.springframework.stereotype.Service;
 public class AccountService {
 
     @Autowired
-    Producer<Integer, Event> producer;
+    Producer<Integer, JsonNode> producer;
 
     @Autowired
-    Consumer<Integer, Event> consumer;
+    Consumer<Integer, JsonNode> consumer;
 
     @Autowired
     KafkaStreams streams;
+
+
+    ObjectMapper objectMapper = new ObjectMapper();
+
 
     private boolean withdrawValidation(int id, int amount){
         ReadOnlyKeyValueStore<Integer, Integer> keyValueStore =
@@ -43,9 +49,11 @@ public class AccountService {
         }
     }
 
+
     public String depositService(int id, int amount){
         DepositEvent event = new DepositEvent(id,amount);
-        ProducerRecord<Integer, Event> record = new ProducerRecord<Integer, Event>(KafkaConfiguration.TOPIC_NAME, event.getUserID(),event);
+        JsonNode jsonNode = objectMapper.valueToTree(event);
+        ProducerRecord<Integer, JsonNode> record = new ProducerRecord<Integer, JsonNode>(KafkaConfiguration.TOPIC_NAME, event.getUserID(),jsonNode);
         producer.send(record);
         return event.toString();
     }
@@ -53,7 +61,8 @@ public class AccountService {
     public String withdrawService(int id, int amount){
         if(withdrawValidation(id,amount)){
             WithdrawEvent event = new WithdrawEvent(id,amount);
-            ProducerRecord<Integer, Event> record = new ProducerRecord<Integer, Event>(KafkaConfiguration.TOPIC_NAME, event.getUserID(),event);
+            JsonNode jsonNode = objectMapper.valueToTree(event);
+            ProducerRecord<Integer, JsonNode> record = new ProducerRecord<Integer, JsonNode>(KafkaConfiguration.TOPIC_NAME, event.getUserID(),jsonNode);
             producer.send(record);
             return event.toString();
         }
@@ -65,13 +74,14 @@ public class AccountService {
     public String getTransaction(){
         StringBuilder builder = new StringBuilder("History of transactions");
         builder.append("<br/>");
-        Event event = null;
-        ConsumerRecords<Integer, Event> consumerRecords = consumer.poll(1000);
-        for (ConsumerRecord<Integer, Event> record : consumerRecords) {
-            event = record.value();
-            builder.append(event.toString()+"<br/>");
+        JsonNode jsonNode = null;
+        ConsumerRecords<Integer, JsonNode> consumerRecords = consumer.poll(1000);
+        for (ConsumerRecord<Integer, JsonNode> record : consumerRecords) {
+            jsonNode = record.value();
+            String event = "User ID: " + jsonNode.get("userID") + " type of transaction: " + jsonNode.get("eventType") + " amount: " + jsonNode.get("amount");
+            builder.append(event + "<br/>");
         }
-        if (event == null){
+        if (jsonNode == null){
             builder.append("No transaction has been made.");
         }
         return builder.toString();
@@ -79,7 +89,7 @@ public class AccountService {
 
     public String getBalance(int id){
         ReadOnlyKeyValueStore<Integer, Integer> keyValueStore =
-                streams.store(KafkaConfiguration.STREAM_STATE_STORE, QueryableStoreTypes.keyValueStore());
+            streams.store(KafkaConfiguration.STREAM_STATE_STORE, QueryableStoreTypes.keyValueStore());
         Integer amount = keyValueStore.get(id);
         if (amount == null){
             return "No customer with id: " + id;

@@ -6,6 +6,7 @@ import org.apache.kafka.common.serialization.Serializer;
 
 import java.util.Map;
 
+@Deprecated
 public class EventSerializer implements Serializer<Event> {
     public void configure(Map<String, ?> configs, boolean isKey) {
     }

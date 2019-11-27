@@ -1,9 +1,10 @@
 package kafka101.kafka;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import kafka101.events.DepositEvent;
-import kafka101.events.Event;
 import kafka101.events.WithdrawEvent;
-import kafka101.kafka.utils.EventSerializer;
 import kafka101.kafka.configuration.KafkaConfiguration;
 import kafka101.kafka.clients.StreamProcessor;
 
@@ -14,6 +15,7 @@ import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.TopologyTestDriver;
 import org.apache.kafka.streams.state.ReadOnlyKeyValueStore;
 import org.apache.kafka.streams.test.ConsumerRecordFactory;
+import org.apache.kafka.connect.json.JsonSerializer;
 
 import org.apache.tomcat.util.http.fileupload.FileUtils;
 import org.junit.After;
@@ -29,6 +31,7 @@ public class TestProcessorTopology {
 
     private TopologyTestDriver testDriver;
     ReadOnlyKeyValueStore<Integer, Integer> store;
+    ObjectMapper objectMapper;
 
     @Before
     public void setUp(){
@@ -43,6 +46,7 @@ public class TestProcessorTopology {
         props.put(StreamsConfig.STATE_DIR_CONFIG,"test-state-store");
         testDriver = new TopologyTestDriver(topology, props);
         store = testDriver.getKeyValueStore(KafkaConfiguration.STREAM_STATE_STORE);
+        objectMapper = new ObjectMapper();
     }
 
     @After
@@ -56,12 +60,12 @@ public class TestProcessorTopology {
 
     @Test
     public void testTopology(){
-        ConsumerRecordFactory<Integer, Event> factory = new ConsumerRecordFactory<>(KafkaConfiguration.TOPIC_NAME,  new IntegerSerializer(), new EventSerializer());
+        ConsumerRecordFactory<Integer, JsonNode> factory = new ConsumerRecordFactory<>(KafkaConfiguration.TOPIC_NAME,  new IntegerSerializer(), new JsonSerializer());
 
-        testDriver.pipeInput(factory.create(1, new DepositEvent(1, 100)));
-        testDriver.pipeInput(factory.create(2, new WithdrawEvent(2, 100)));
-        testDriver.pipeInput(factory.create(1, new WithdrawEvent(1, 200)));
-        testDriver.pipeInput(factory.create(2, new DepositEvent(2, 100)));
+        testDriver.pipeInput(factory.create(1, objectMapper.valueToTree(new DepositEvent(1, 100))));
+        testDriver.pipeInput(factory.create(2, objectMapper.valueToTree(new WithdrawEvent(2, 100))));
+        testDriver.pipeInput(factory.create(1, objectMapper.valueToTree(new WithdrawEvent(1, 200))));
+        testDriver.pipeInput(factory.create(2, objectMapper.valueToTree(new DepositEvent(2, 100))));
 
         int amount = store.get(1);
         Assert.assertEquals(-100,amount);

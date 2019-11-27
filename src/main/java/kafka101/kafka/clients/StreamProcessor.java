@@ -1,10 +1,12 @@
 package kafka101.kafka.clients;
 
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import kafka101.events.Event;
 import kafka101.events.EventType;
-import kafka101.kafka.utils.EventDeserializer;
-import kafka101.kafka.utils.EventSerializer;
 import kafka101.kafka.configuration.KafkaConfiguration;
 
 import org.apache.kafka.common.serialization.Serde;
@@ -12,6 +14,8 @@ import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.*;
 import org.apache.kafka.streams.kstream.*;
+import org.apache.kafka.connect.json.JsonSerializer;
+import org.apache.kafka.connect.json.JsonDeserializer;
 
 import org.apache.kafka.streams.state.KeyValueStore;
 import org.springframework.context.annotation.Bean;
@@ -29,7 +33,7 @@ public class StreamProcessor {
         props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.Integer().getClass());
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.Integer().getClass());
         props.put(StreamsConfig.STATE_DIR_CONFIG,KafkaConfiguration.STREAM_STATE_DIR);
-
+        props.put(StreamsConfig.APPLICATION_SERVER_CONFIG,KafkaConfiguration.STREAM_ENDPOINT);
         final KafkaStreams kafkaStreams = new KafkaStreams(kafkaStreamTopology(), props);
         kafkaStreams.start();
 
@@ -39,11 +43,12 @@ public class StreamProcessor {
 
     @Bean
     public Topology kafkaStreamTopology(){
-        Serde<Event> eventSerde = Serdes.serdeFrom(new EventSerializer(), new EventDeserializer());
+        Serde<JsonNode> eventSerde = Serdes.serdeFrom(new JsonSerializer(), new JsonDeserializer());
         final StreamsBuilder streamsBuilder = new StreamsBuilder();
+        ObjectMapper objectMapper = new ObjectMapper();
 
-        KStream<Integer, Event> source = streamsBuilder.stream(KafkaConfiguration.TOPIC_NAME, Consumed.with(Serdes.Integer(), eventSerde));
-        KTable<Integer,Integer> accountBalance = source.map((key,value) -> new KeyValue<Integer,Integer>(key, isWithdraw(value)?-value.getAmount():value.getAmount()))
+        KStream<Integer, JsonNode> source = streamsBuilder.stream(KafkaConfiguration.TOPIC_NAME, Consumed.with(Serdes.Integer(), eventSerde));
+        KTable<Integer,Integer> accountBalance = source.mapValues(value -> extractAmount(value))
                                                        .groupByKey()
                                                        .aggregate(  // Java 8+, using Lambda expressions
                                                            () -> 0,
@@ -66,13 +71,15 @@ public class StreamProcessor {
         return streamsBuilder.build();
     }
 
-    public boolean isWithdraw(Event event){
-        EventType type = event.getEventType();
-        if (type.equals(EventType.WITHDRAW)){
-            return true;
+    public int extractAmount(JsonNode jsonNode){
+        String eventType = jsonNode.get("eventType").asText();
+        int amount = 0;
+        if(eventType.equals("WITHDRAW")){
+            amount = jsonNode.get("amount").asInt()*(-1);
         }
-        else{
-            return false;
+        if(eventType.equals("DEPOSIT")){
+            amount = jsonNode.get("amount").asInt();
         }
+        return amount;
     }
 }

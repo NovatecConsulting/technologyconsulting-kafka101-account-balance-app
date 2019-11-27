@@ -14,4 +14,5 @@ public interface KafkaConfiguration {
     public static String OFFSET_RESET_EARLIER="earliest";
     public static String STREAM_STATE_STORE="balance-store";
     public static String STREAM_STATE_DIR="stream1";
+    public static String STREAM_ENDPOINT="localhost:8080";
 }
